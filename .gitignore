@@ -1,3 +1,12 @@
-.venv
-*.egg-info
-dist
+# Ignore Django migration files
+**/migrations/*.py
+**/migrations/*.pyc
+
+# Ignore virtual environment
+.venv/
+
+# Ignore egg info
+*.egg-info/
+
+# Ignore distribution folders
+dist/
