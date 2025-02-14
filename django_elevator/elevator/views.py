@@ -1,0 +1,316 @@
+from rest_framework import viewsets, permissions, status, generics
+from .serializers import (UserSerializer)
+from .models import ( User)
+from rest_framework.parsers import MultiPartParser
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
+from rest_framework.authtoken.serializers import AuthTokenSerializer
+from knox.auth import AuthToken
+from datetime import datetime
+from django.shortcuts import render
+from .models import Location, Board, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord
+from .serializers import (
+    LocationReadSerializer, LocationWriteSerializer,
+    BoardReadSerializer, BoardWriteSerializer, 
+    RegisterReadSerializer, RegisterWriteSerializer, 
+    NotificationReadSerializer, NotificationWriteSerializer, 
+    HistoricalDataReadSerializer, HistoricalDataWriteSerializer, 
+    HistoricalControlReadSerializer, HistoricalControlWriteSerializer, 
+    RegisterSettingReadSerializer, RegisterSettingWriteSerializer, 
+    MaintenanceRecordReadSerializer, MaintenanceRecordWriteSerializer
+)
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.parsers import JSONParser
+
+@api_view(['POST'])
+def login_api(request):
+    permission_classes = [permissions.AllowAny]
+    serializer = AuthTokenSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = serializer.validated_data['user']
+
+    user.auth_token_set.all().delete()
+    _, token = AuthToken.objects.create(user)
+
+    device_token = request.data.get('device_token')
+    if device_token is not None:
+        user.device_token = device_token
+        user.save()
+
+    return Response({
+        'user_info': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'device_token': user.device_token,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'is_superuser': user.is_superuser,
+        },
+        'token': token
+    })
+
+
+@api_view(['GET'])
+def get_user_data(request):
+    user = request.user
+
+    if user is not None:
+        return Response(data={'user_info': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email
+        }})
+    return Response(data={'error': 'not authenticated'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView, generics.UpdateAPIView, generics.RetrieveAPIView, generics.DestroyAPIView):
+    queryset = User.objects.filter(is_active=True)
+    serializer_class = UserSerializer
+    parser_classes = [MultiPartParser]
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(methods=['get'], detail=False, url_path='current-user')
+    def get_current_user(seft, request):
+        return Response(seft.serializer_class(request.user).data, status=status.HTTP_200_OK)
+
+    def list(self, request):
+        users = User.objects.filter(is_active=True)
+        building = request.query_params.get('building')
+        if building is not None:
+            users = users.filter(building=building)
+
+        serializer = UserSerializer(users, many=True)
+        return Response(data={"users": serializer.data}, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['get'])
+    def boards(self, request, pk=None):
+        user = self.get_object()
+        if user.is_superuser:
+            boards = Board.objects.all()
+        else:
+            boards = user.accessible_boards.all()
+        serializer = BoardReadSerializer(boards, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def locations(self, request, pk=None):
+        user = self.get_object()
+        if user.is_superuser:
+            locations = Location.objects.all()
+        else:
+            locations = user.accessible_locations.all()
+        serializer = LocationReadSerializer(locations, many=True)
+        return Response(serializer.data)
+
+    def destroy(self, request, pk, *args, **kwargs):
+        user = User.objects.get(pk=pk)
+        user.is_active = False
+        user.save()
+        return Response(status=204)
+    
+class LocationViewSet(viewsets.ModelViewSet):
+    queryset = Location.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve']:
+            return LocationReadSerializer
+        return LocationWriteSerializer
+    
+    @action(detail=True, methods=['get']) 
+    def boards(self, request, pk=None): 
+        location = self.get_object() 
+        boards = location.boards.all() 
+        serializer = BoardReadSerializer(boards, many=True) 
+        return Response(serializer.data)
+    
+class BoardViewSet(viewsets.ModelViewSet):
+    queryset = Board.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve']:
+            return BoardReadSerializer
+        return BoardWriteSerializer
+    
+    @action(detail=True, methods=['get']) 
+    def registers(self, request, pk=None): 
+        board = self.get_object() 
+        registers = board.registers.all() 
+        serializer = RegisterReadSerializer(registers, many=True) 
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get']) 
+    def notifications(self, request, pk=None): 
+        board = self.get_object() 
+        notifications = board.notifications.all() 
+        serializer = NotificationReadSerializer(notifications, many=True) 
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get']) 
+    def maintenance_records(self, request, pk=None): 
+        board = self.get_object() 
+        maintenance_records = board.maintenance_records.all() 
+        serializer = MaintenanceRecordReadSerializer(maintenance_records, many=True) 
+        return Response(serializer.data)
+
+class RegisterViewSet(viewsets.ModelViewSet):
+    queryset = Register.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve']:
+            return RegisterReadSerializer
+        return RegisterWriteSerializer
+    
+    @action(detail=True, methods=['get']) 
+    def historical_data(self, request, pk=None): 
+        register = self.get_object() 
+        historical_data = register.historical_data.all() 
+        serializer = HistoricalDataReadSerializer(historical_data, many=True) 
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get']) 
+    def historical_controls(self, request, pk=None): 
+        register = self.get_object() 
+        historical_controls = register.historical_controls.all() 
+        serializer = HistoricalControlReadSerializer(historical_controls, many=True) 
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get']) 
+    def register_settings(self, request, pk=None): 
+        register = self.get_object() 
+        settings = register.register_settings.all() 
+        serializer = RegisterSettingReadSerializer(settings, many=True) 
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get']) 
+    def maintenance_records(self, request, pk=None): 
+        register = self.get_object() 
+        maintenance_records = register.maintenance_records.all() 
+        serializer = MaintenanceRecordReadSerializer(maintenance_records, many=True) 
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get']) 
+    def notifications(self, request, pk=None): 
+        register = self.get_object() 
+        notifications = register.notifications.all() 
+        serializer = NotificationReadSerializer(notifications, many=True) 
+        return Response(serializer.data)
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    queryset = Notification.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve']:
+            return NotificationReadSerializer
+        return NotificationWriteSerializer
+
+class HistoricalDataViewSet(viewsets.ModelViewSet):
+    queryset = HistoricalData.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve']:
+            return HistoricalDataReadSerializer
+        return HistoricalDataWriteSerializer
+
+class HistoricalControlViewSet(viewsets.ModelViewSet):
+    queryset = HistoricalControl.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve']:
+            return HistoricalControlReadSerializer
+        return HistoricalControlWriteSerializer
+
+class RegisterSettingViewSet(viewsets.ModelViewSet):
+    queryset = RegisterSetting.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve']:
+            return RegisterSettingReadSerializer
+        return RegisterSettingWriteSerializer
+
+class MaintenanceRecordViewSet(viewsets.ModelViewSet):
+    queryset = MaintenanceRecord.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve']:
+            return MaintenanceRecordReadSerializer
+        return MaintenanceRecordWriteSerializer
+    
+
+@api_view(['POST'])
+def receive_data(request):
+    data = request.data
+    print('Received data:', data)
+    board_id = data.get('id')
+    print('Board ID:', board_id)
+    
+    try:
+        board = Board.objects.get(device_id=board_id)
+        print('Board found:', board)
+    except Board.DoesNotExist:
+        print('Board not found')
+        return Response({'status': 'fail', 'message': 'Board not found'}, status=404)
+    
+    data_list = data.get('data', [])
+    print('Data list:', data_list)
+    
+    for item in data_list:
+        print('Processing item:', item)
+        name = item.get('name')
+        
+        for key, value in item.items():
+            if key.startswith('value'):
+                obj, created = Register.objects.update_or_create(
+                    board=board,
+                    name=name,
+                    defaults={'value': value}
+                )
+
+                if not created:
+                    HistoricalData.objects.create(
+                        register=obj,
+                        type=obj.type,
+                        value=value
+                    )
+                print('Register object:', obj, 'Created:', created)
+    
+    return Response({'status': 'success'}, status=201)
+
+
+
+@api_view(['POST'])
+def notifications(request):
+    data = request.data
+    print('Received data:', data)
+    board_id = data.get('id')
+    print('Board ID:', board_id)
+    
+    try:
+        board = Board.objects.get(device_id=board_id)
+        print('Board found:', board)
+    except Board.DoesNotExist:
+        print('Board not found')
+        return Response({'status': 'fail', 'message': 'Board not found'}, status=404)
+    
+    data = data.get('data')
+    Notification.objects.create(
+        board=board,
+        # register=register,
+        title=data['title'],
+        description=data['description']
+    )
+     
+    return Response({'status': 'success'}, status=201)
+
+
+
