@@ -9,7 +9,7 @@ from rest_framework.authtoken.serializers import AuthTokenSerializer
 from knox.auth import AuthToken
 from datetime import datetime
 from django.shortcuts import render
-from .models import Location, Board, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord
+from .models import Location, Board, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag
 from .serializers import (
     LocationReadSerializer, LocationWriteSerializer,
     BoardReadSerializer, BoardWriteSerializer, 
@@ -18,7 +18,8 @@ from .serializers import (
     HistoricalDataReadSerializer, HistoricalDataWriteSerializer, 
     HistoricalControlReadSerializer, HistoricalControlWriteSerializer, 
     RegisterSettingReadSerializer, RegisterSettingWriteSerializer, 
-    MaintenanceRecordReadSerializer, MaintenanceRecordWriteSerializer
+    MaintenanceRecordReadSerializer, MaintenanceRecordWriteSerializer,
+    TagSerializer
 )
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -245,6 +246,23 @@ class MaintenanceRecordViewSet(viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve']:
             return MaintenanceRecordReadSerializer
         return MaintenanceRecordWriteSerializer
+
+class TagViewSet(viewsets.ModelViewSet):
+    queryset = Tag.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = TagSerializer
+
+    @action(detail=False, methods=['get'])
+    def search_by_code(self, request):
+        tag_code = request.query_params.get('tag_code', None)
+        if tag_code:
+            tags = Tag.objects.filter(tag_code=tag_code)
+            if tags.exists():
+                serializer = TagSerializer(tags, many=True)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response({'detail': 'No tags found with this code.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'detail': 'Tag code parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
     
 
 @api_view(['POST'])

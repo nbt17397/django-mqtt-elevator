@@ -89,4 +89,17 @@ class MaintenanceRecord(models.Model):
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name='maintenance_records') 
     timestamp = models.DateTimeField(auto_now_add=True)
 
+class Tag(models.Model):
+    tag_code = models.CharField(max_length=50, unique=True, null=False)
+    tag_name = models.CharField(max_length=150, null=False)
+    description = models.TextField(null=True, blank=True)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    updated_date = models.DateTimeField(auto_now=True)
+    active = models.BooleanField(default=True)
+
+    def __str__(self) -> str:
+        return self.tag_name
+
+
 

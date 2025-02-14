@@ -1,5 +1,5 @@
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
-from .models import  User, Location, Board, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord
+from .models import  User, Location, Board, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
@@ -138,6 +138,11 @@ class MaintenanceRecordWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = MaintenanceRecord
         fields = ['name', 'description', 'register', 'board', 'timestamp']
+
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = '__all__'
 
 
 

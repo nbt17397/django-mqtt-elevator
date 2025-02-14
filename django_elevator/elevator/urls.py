@@ -13,6 +13,7 @@ router.register(r'historical_data', views.HistoricalDataViewSet)
 router.register(r'historical_controls', views.HistoricalControlViewSet)
 router.register(r'register_settings', views.RegisterSettingViewSet)
 router.register(r'maintenance_records', views.MaintenanceRecordViewSet)
+router.register(r'tags', views.TagViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -20,5 +21,5 @@ urlpatterns = [
     path('api/login/', views.login_api),
     path('api/user/', views.get_user_data),
     path('api/receive-data/', views.receive_data),
-    path('api/notifications',views.notifications)
+    path('api/notifications/',views.notifications)
 ]
