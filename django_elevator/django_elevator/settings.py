@@ -101,9 +101,9 @@ WSGI_APPLICATION = 'django_elevator.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'elevator',
+        'NAME': 'elevatorDB',
         'USER': 'root',
-        'PASSWORD': '12345678',
+        'PASSWORD': '285495659',
         'HOST': ''
     }
 }
