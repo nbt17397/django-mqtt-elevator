@@ -34,9 +34,22 @@ class UserReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'name']
-    
+
+class BoardSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Board
+        fields = '__all__'    
+
+class LocationSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Location
+        fields = '__all__'
 
 class LocationReadSerializer(serializers.ModelSerializer):
+    boards = BoardSerializer(many=True, read_only=True)
+
     class Meta:
         model = Location
         fields = '__all__'
@@ -47,7 +60,7 @@ class LocationWriteSerializer(serializers.ModelSerializer):
         fields = ['name', 'description', 'lat', 'lng', 'authorized_users']
 
 class BoardReadSerializer(serializers.ModelSerializer):
-    location = LocationReadSerializer(read_only=True)
+    location = LocationSerializer(read_only=True)
     authorized_users = UserReadSerializer(many=True, read_only=True)
 
     class Meta:

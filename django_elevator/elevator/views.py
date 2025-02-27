@@ -24,6 +24,7 @@ from .serializers import (
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser
+from .paginator import StandardResultsSetPagination
 
 @api_view(['POST'])
 def login_api(request):
@@ -48,6 +49,7 @@ def login_api(request):
             'device_token': user.device_token,
             'first_name': user.first_name,
             'last_name': user.last_name,
+            'name': user.name,
             'is_superuser': user.is_superuser,
         },
         'token': token
@@ -70,7 +72,6 @@ def get_user_data(request):
 class UserViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView, generics.UpdateAPIView, generics.RetrieveAPIView, generics.DestroyAPIView):
     queryset = User.objects.filter(is_active=True)
     serializer_class = UserSerializer
-    parser_classes = [MultiPartParser]
     permission_classes = [permissions.IsAuthenticated]
 
     @action(methods=['get'], detail=False, url_path='current-user')
@@ -89,22 +90,26 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView
     @action(detail=True, methods=['get'])
     def boards(self, request, pk=None):
         user = self.get_object()
+        paginator = StandardResultsSetPagination()
         if user.is_superuser:
             boards = Board.objects.all()
         else:
             boards = user.accessible_boards.all()
-        serializer = BoardReadSerializer(boards, many=True)
-        return Response(serializer.data)
+        result_page = paginator.paginate_queryset(boards, request)
+        serializer = BoardReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
     
     @action(detail=True, methods=['get'])
     def locations(self, request, pk=None):
         user = self.get_object()
+        paginator = StandardResultsSetPagination()
         if user.is_superuser:
             locations = Location.objects.all()
         else:
             locations = user.accessible_locations.all()
-        serializer = LocationReadSerializer(locations, many=True)
-        return Response(serializer.data)
+        result_page = paginator.paginate_queryset(locations, request)
+        serializer = LocationReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def destroy(self, request, pk, *args, **kwargs):
         user = User.objects.get(pk=pk)
@@ -124,9 +129,11 @@ class LocationViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get']) 
     def boards(self, request, pk=None): 
         location = self.get_object() 
+        paginator = StandardResultsSetPagination()
         boards = location.boards.all() 
-        serializer = BoardReadSerializer(boards, many=True) 
-        return Response(serializer.data)
+        result_page = paginator.paginate_queryset(boards, request)
+        serializer = BoardReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
     
 class BoardViewSet(viewsets.ModelViewSet):
     queryset = Board.objects.all()
@@ -140,23 +147,29 @@ class BoardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get']) 
     def registers(self, request, pk=None): 
         board = self.get_object() 
-        registers = board.registers.all() 
-        serializer = RegisterReadSerializer(registers, many=True) 
-        return Response(serializer.data)
+        paginator = StandardResultsSetPagination()
+        registers = board.registers.all()
+        result_page = paginator.paginate_queryset(registers, request)
+        serializer = RegisterReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
     
     @action(detail=True, methods=['get']) 
     def notifications(self, request, pk=None): 
         board = self.get_object() 
-        notifications = board.notifications.all() 
-        serializer = NotificationReadSerializer(notifications, many=True) 
-        return Response(serializer.data)
+        paginator = StandardResultsSetPagination()
+        notifications = board.notifications.all()
+        result_page = paginator.paginate_queryset(notifications, request)
+        serializer = NotificationReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
     
     @action(detail=True, methods=['get']) 
     def maintenance_records(self, request, pk=None): 
         board = self.get_object() 
+        paginator = StandardResultsSetPagination()
         maintenance_records = board.maintenance_records.all() 
-        serializer = MaintenanceRecordReadSerializer(maintenance_records, many=True) 
-        return Response(serializer.data)
+        result_page = paginator.paginate_queryset(maintenance_records, request)
+        serializer = MaintenanceRecordReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 class RegisterViewSet(viewsets.ModelViewSet):
     queryset = Register.objects.all()
@@ -170,37 +183,47 @@ class RegisterViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get']) 
     def historical_data(self, request, pk=None): 
         register = self.get_object() 
-        historical_data = register.historical_data.all() 
-        serializer = HistoricalDataReadSerializer(historical_data, many=True) 
-        return Response(serializer.data)
+        paginator = StandardResultsSetPagination()
+        historical_data = register.historical_data.all()
+        result_page = paginator.paginate_queryset(historical_data, request)
+        serializer = HistoricalDataReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
     
     @action(detail=True, methods=['get']) 
     def historical_controls(self, request, pk=None): 
         register = self.get_object() 
-        historical_controls = register.historical_controls.all() 
-        serializer = HistoricalControlReadSerializer(historical_controls, many=True) 
-        return Response(serializer.data)
+        paginator = StandardResultsSetPagination()
+        historical_controls = register.historical_controls.all()
+        result_page = paginator.paginate_queryset(historical_controls, request)
+        serializer = HistoricalControlReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
     
     @action(detail=True, methods=['get']) 
     def register_settings(self, request, pk=None): 
         register = self.get_object() 
-        settings = register.register_settings.all() 
-        serializer = RegisterSettingReadSerializer(settings, many=True) 
-        return Response(serializer.data)
+        paginator = StandardResultsSetPagination()
+        settings = register.register_settings.all()
+        result_page = paginator.paginate_queryset(settings, request)
+        serializer = RegisterSettingReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
     
     @action(detail=True, methods=['get']) 
     def maintenance_records(self, request, pk=None): 
         register = self.get_object() 
-        maintenance_records = register.maintenance_records.all() 
-        serializer = MaintenanceRecordReadSerializer(maintenance_records, many=True) 
-        return Response(serializer.data)
+        paginator = StandardResultsSetPagination()
+        maintenance_records = register.maintenance_records.all()
+        result_page = paginator.paginate_queryset(maintenance_records, request)
+        serializer = MaintenanceRecordReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
     
     @action(detail=True, methods=['get']) 
     def notifications(self, request, pk=None): 
         register = self.get_object() 
-        notifications = register.notifications.all() 
-        serializer = NotificationReadSerializer(notifications, many=True) 
-        return Response(serializer.data)
+        paginator = StandardResultsSetPagination()
+        notifications = register.notifications.all()
+        result_page = paginator.paginate_queryset(notifications, request)
+        serializer = NotificationReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
@@ -307,9 +330,9 @@ def receive_data(request):
 
 
 @api_view(['POST'])
-def notifications(request):
+def notification_data(request):
     data = request.data
-    print('Received data:', data)
+    print('Notification data:', data)
     board_id = data.get('id')
     print('Board ID:', board_id)
     
@@ -330,5 +353,40 @@ def notifications(request):
      
     return Response({'status': 'success'}, status=201)
 
+
+@api_view(['POST'])
+def setting_data(request):
+    data = request.data
+    print('Setting data:', data)
+    board_id = data.get('id')
+    print('Board ID:', board_id)
+    
+    try:
+        board = Board.objects.get(device_id=board_id)
+        print('Board found:', board)
+    except Board.DoesNotExist:
+        print('Board not found')
+        return Response({'status': 'fail', 'message': 'Board not found'}, status=404)
+    
+    data_list = data.get('data', [])
+    if not data_list:
+        return Response({'status': 'fail', 'message': 'Data not provided'}, status=400)
+
+    for item in data_list:
+        try:
+            register = Register.objects.get(name=item['name'], board=board)
+            print('Register found:', register)
+        except Register.DoesNotExist:
+            print('Register not found')
+            continue
+        
+        RegisterSetting.objects.create(
+            board=board,
+            register=register,
+            type=item['type'],
+            value=item['value'],
+        )
+    
+    return Response({'status': 'success'}, status=201)
 
 
