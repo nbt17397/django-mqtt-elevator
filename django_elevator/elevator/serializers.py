@@ -1,5 +1,5 @@
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
-from .models import  User, Location, Board, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag
+from .models import  User, Location, Board, BoardType, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
@@ -35,6 +35,12 @@ class UserReadSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'name']
 
+class BoardTypeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = BoardType
+        fields = '__all__'
+
 class BoardSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -61,6 +67,7 @@ class LocationWriteSerializer(serializers.ModelSerializer):
 
 class BoardReadSerializer(serializers.ModelSerializer):
     location = LocationSerializer(read_only=True)
+    board_type = BoardTypeSerializer(read_only=True)
     authorized_users = UserReadSerializer(many=True, read_only=True)
 
     class Meta:
@@ -70,7 +77,7 @@ class BoardReadSerializer(serializers.ModelSerializer):
 class BoardWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Board
-        fields = ['name', 'description', 'location', 'status', 'device_id', 'authorized_users']
+        fields = ['name', 'description', 'location', 'board_type', 'status', 'device_id', 'authorized_users']
 
 
 class RegisterReadSerializer(serializers.ModelSerializer):

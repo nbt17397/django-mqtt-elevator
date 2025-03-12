@@ -9,7 +9,7 @@ from rest_framework.authtoken.serializers import AuthTokenSerializer
 from knox.auth import AuthToken
 from datetime import datetime
 from django.shortcuts import render
-from .models import Location, Board, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag
+from .models import Location, Board, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag, BoardType
 from .serializers import (
     LocationReadSerializer, LocationWriteSerializer,
     BoardReadSerializer, BoardWriteSerializer, 
@@ -19,7 +19,7 @@ from .serializers import (
     HistoricalControlReadSerializer, HistoricalControlWriteSerializer, 
     RegisterSettingReadSerializer, RegisterSettingWriteSerializer, 
     MaintenanceRecordReadSerializer, MaintenanceRecordWriteSerializer,
-    TagSerializer
+    TagSerializer, BoardTypeSerializer
 )
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -134,6 +134,12 @@ class LocationViewSet(viewsets.ModelViewSet):
         result_page = paginator.paginate_queryset(boards, request)
         serializer = BoardReadSerializer(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
+    
+class BoardTypeViewSet(viewsets.ModelViewSet):
+    queryset = BoardType.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = BoardTypeSerializer
+
     
 class BoardViewSet(viewsets.ModelViewSet):
     queryset = Board.objects.all()

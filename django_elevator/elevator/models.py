@@ -22,7 +22,14 @@ class ItemBase(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+class BoardType(ItemBase):
+    class Meta:
+        unique_together = ('name',)
     
+    code = models.CharField(max_length=50, null=True, blank=True)
+    description = models.CharField(max_length=1000, null=True, blank=True)
+
 class Location(ItemBase):
     class Meta:
         unique_together = ('name',)
@@ -37,6 +44,7 @@ class Board(ItemBase):
     device_id = models.UUIDField(default=uuid.uuid4, unique=True)
     description = models.CharField(max_length=1000, null=True, blank=True)
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='boards')
+    board_type = models.ForeignKey(BoardType, on_delete=models.SET_NULL, null=True, related_name='boards')
     status = models.BooleanField(default=False)
     authorized_users = models.ManyToManyField(User, related_name='accessible_boards')
 
