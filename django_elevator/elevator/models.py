@@ -101,6 +101,10 @@ class Tag(models.Model):
     tag_code = models.CharField(max_length=50, unique=True, null=False)
     tag_name = models.CharField(max_length=150, null=False)
     description = models.TextField(null=True, blank=True)
+    max_value = models.IntegerField(null=True, blank=True)
+    min_value = models.IntegerField(null=True, blank=True)
+    default_value = models.IntegerField(null=True, blank=True)
+
 
     created_date = models.DateTimeField(auto_now_add=True)
     updated_date = models.DateTimeField(auto_now=True)
