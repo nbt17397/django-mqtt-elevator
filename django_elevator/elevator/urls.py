@@ -22,5 +22,6 @@ urlpatterns = [
     path('api/login/', views.login_api),
     path('api/user/', views.get_user_data),
     path('api/receive-data/', views.receive_data),
-    path('api/notification-data/',views.notification_data)
+    path('api/notification-data/',views.notification_data),
+    path('api/historical-data/',views.historical_data)
 ]

@@ -361,7 +361,7 @@ def notification_data(request):
 
 
 @api_view(['POST'])
-def setting_data(request):
+def historical_data(request):
     data = request.data
     print('Setting data:', data)
     board_id = data.get('id')
@@ -374,7 +374,7 @@ def setting_data(request):
         print('Board not found')
         return Response({'status': 'fail', 'message': 'Board not found'}, status=404)
     
-    data_list = data.get('data', [])
+    data_list = data.get('changed', [])
     if not data_list:
         return Response({'status': 'fail', 'message': 'Data not provided'}, status=400)
 
@@ -382,16 +382,27 @@ def setting_data(request):
         try:
             register = Register.objects.get(name=item['name'], board=board)
             print('Register found:', register)
+            HistoricalData.objects.create(
+                    register=register,
+                    type=register.type,
+                    value= item.get('value')
+                )
+
         except Register.DoesNotExist:
             print('Register not found')
-            continue
+            obj, created = Register.objects.update_or_create(
+                    board=board,
+                    name= item.get('name'),
+                    defaults={'value': item.get('value')}
+                )
+
+            if created:
+                HistoricalData.objects.create(
+                    register=obj,
+                    type=obj.type,
+                    value= item.get('value')
+                )
         
-        RegisterSetting.objects.create(
-            board=board,
-            register=register,
-            type=item['type'],
-            value=item['value'],
-        )
     
     return Response({'status': 'success'}, status=201)
 
