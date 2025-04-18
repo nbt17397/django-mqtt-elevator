@@ -195,6 +195,32 @@ class RegisterViewSet(viewsets.ModelViewSet):
         serializer = HistoricalDataReadSerializer(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
     
+    @action(detail=True, methods=['get'], url_path='historical-data/all')
+    def historical_data_all(self, request, pk=None):
+        register = self.get_object()
+        historical_data = register.historical_data.all()
+        serializer = HistoricalDataReadSerializer(historical_data, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'], url_path='historical-data/range')
+    def historical_data_by_date(self, request, pk=None):
+        register = self.get_object()
+        date_start = request.query_params.get('date_start')
+        date_end = request.query_params.get('date_end')
+
+        if not date_start or not date_end:
+            return Response({"error": "date_start và date_end là bắt buộc"}, status=400)
+
+        try:
+            date_start = parse_datetime(date_start)
+            date_end = parse_datetime(date_end)
+        except Exception:
+            return Response({"error": "Định dạng ngày không hợp lệ. Dùng ISO 8601."}, status=400)
+
+        historical_data = register.historical_data.filter(timestamp__range=(date_start, date_end))
+        serializer = HistoricalDataReadSerializer(historical_data, many=True)
+        return Response(serializer.data)
+    
     @action(detail=True, methods=['get']) 
     def historical_controls(self, request, pk=None): 
         register = self.get_object() 
