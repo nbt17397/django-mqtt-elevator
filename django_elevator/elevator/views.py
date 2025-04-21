@@ -212,8 +212,8 @@ class RegisterViewSet(viewsets.ModelViewSet):
             return Response({"error": "date_start và date_end là bắt buộc"}, status=400)
 
         try:
-            date_start = parse_datetime(date_start)
-            date_end = parse_datetime(date_end)
+            date_start = datetime.strptime(date_start, "%Y-%m-%dT%H:%M:%S")
+            date_end = datetime.strptime(date_end, "%Y-%m-%dT%H:%M:%S")
         except Exception:
             return Response({"error": "Định dạng ngày không hợp lệ. Dùng ISO 8601."}, status=400)
 
