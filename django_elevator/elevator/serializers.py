@@ -77,7 +77,7 @@ class BoardReadSerializer(serializers.ModelSerializer):
 class BoardWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Board
-        fields = ['name', 'description', 'location', 'board_type', 'status', 'device_id', 'authorized_users']
+        fields = ['name', 'description', 'location', 'board_type', 'status', 'device_id', 'authorized_users', 'capacity']
 
 
 class RegisterReadSerializer(serializers.ModelSerializer):

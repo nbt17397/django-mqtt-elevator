@@ -47,7 +47,7 @@ class Board(ItemBase):
     board_type = models.ForeignKey(BoardType, on_delete=models.SET_NULL, null=True, related_name='boards')
     status = models.BooleanField(default=False)
     authorized_users = models.ManyToManyField(User, related_name='accessible_boards')
-
+    capacity = models.FloatField(null=True, blank=True)
 
 class Register(ItemBase):
         
