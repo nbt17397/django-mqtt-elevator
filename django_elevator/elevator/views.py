@@ -484,7 +484,12 @@ def request_board_control(request):
     ).first()
 
     if existing_request:
-        return Response({'message': 'You already have an active control request'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'message': 'You already have an active control request',
+            'expires_at': existing_request.expires_at,
+            'expires_at_ts': int(existing_request.expires_at.timestamp())
+        }, status=status.HTTP_200_OK)
+
 
     control_request = BoardControlRequest.objects.create(board=board, user=request.user)
     return Response({
