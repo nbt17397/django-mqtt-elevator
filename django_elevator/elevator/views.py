@@ -489,7 +489,8 @@ def request_board_control(request):
     control_request = BoardControlRequest.objects.create(board=board, user=request.user)
     return Response({
         'message': 'Control request sent',
-        'expires_at': control_request.expires_at
+        'expires_at': control_request.expires_at,
+        'expires_at_ts': int(control_request.expires_at.timestamp())
     }, status=status.HTTP_201_CREATED)
 
 
