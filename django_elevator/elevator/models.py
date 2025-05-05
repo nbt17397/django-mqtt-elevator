@@ -1,9 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
-
+from django.utils import timezone
 
 class User(AbstractUser):
 
@@ -48,6 +48,24 @@ class Board(ItemBase):
     status = models.BooleanField(default=False)
     authorized_users = models.ManyToManyField(User, related_name='accessible_boards')
     capacity = models.FloatField(null=True, blank=True)
+
+
+class BoardControlRequest(models.Model):
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name='control_requests')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='board_control_requests')
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    is_active = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(minutes=30)
+        super().save(*args, **kwargs)
+
+    def has_expired(self):
+        return timezone.now() > self.expires_at
+
 
 class Register(ItemBase):
         

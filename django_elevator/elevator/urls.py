@@ -8,6 +8,7 @@ router.register(r'users', views.UserViewSet)
 router.register(r'locations', views.LocationViewSet)
 router.register(r'boards', views.BoardViewSet)
 router.register(r'board_types', views.BoardTypeViewSet)
+router.register(r'board_control_requests', views.BoardControlRequestViewSet)
 router.register(r'registers', views.RegisterViewSet)
 router.register(r'notifications', views.NotificationViewSet)
 router.register(r'historical_data', views.HistoricalDataViewSet)
@@ -23,5 +24,7 @@ urlpatterns = [
     path('api/user/', views.get_user_data),
     path('api/receive-data/', views.receive_data),
     path('api/notification-data/',views.notification_data),
-    path('api/historical-data/',views.historical_data)
+    path('api/historical-data/',views.historical_data),
+    path('api/request-control/',views.request_board_control),
+    path('api/check-board-control-permission/',views.check_board_control_permission),
 ]

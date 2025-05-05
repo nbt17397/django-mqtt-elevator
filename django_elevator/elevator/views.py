@@ -4,12 +4,13 @@ from .models import ( User)
 from rest_framework.parsers import MultiPartParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.authtoken.serializers import AuthTokenSerializer
 from knox.auth import AuthToken
 from datetime import datetime
+from django.utils import timezone
 from django.shortcuts import render
-from .models import Location, Board, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag, BoardType
+from .models import Location, Board, BoardControlRequest, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag, BoardType
 from .serializers import (
     LocationReadSerializer, LocationWriteSerializer,
     BoardReadSerializer, BoardWriteSerializer, 
@@ -19,7 +20,7 @@ from .serializers import (
     HistoricalControlReadSerializer, HistoricalControlWriteSerializer, 
     RegisterSettingReadSerializer, RegisterSettingWriteSerializer, 
     MaintenanceRecordReadSerializer, MaintenanceRecordWriteSerializer,
-    TagSerializer, BoardTypeSerializer
+    TagSerializer, BoardTypeSerializer, BoardControlRequestSerializer
 )
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -140,7 +141,11 @@ class BoardTypeViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = BoardTypeSerializer
 
-    
+class BoardControlRequestViewSet(viewsets.ModelViewSet):
+    queryset = BoardControlRequest.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = BoardControlRequestSerializer
+
 class BoardViewSet(viewsets.ModelViewSet):
     queryset = Board.objects.all()
     permission_classes = [permissions.IsAuthenticated]
@@ -175,6 +180,15 @@ class BoardViewSet(viewsets.ModelViewSet):
         maintenance_records = board.maintenance_records.all() 
         result_page = paginator.paginate_queryset(maintenance_records, request)
         serializer = MaintenanceRecordReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+    
+    @action(detail=True, methods=['get']) 
+    def control_requests(self, request, pk=None): 
+        board = self.get_object() 
+        paginator = StandardResultsSetPagination()
+        control_requests = board.control_requests.all()
+        result_page = paginator.paginate_queryset(control_requests, request)
+        serializer = BoardControlRequestSerializer(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
 class RegisterViewSet(viewsets.ModelViewSet):
@@ -431,5 +445,52 @@ def historical_data(request):
         
     
     return Response({'status': 'success'}, status=201)
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def check_board_control_permission(request):
+    board_id = request.data.get('board_id')
+    
+    if not board_id:
+        return Response({'error': 'Missing board_id'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    has_permission = BoardControlRequest.objects.filter(
+        board_id=board_id,
+        user=request.user,
+        is_active=True,
+        expires_at__gt=timezone.now()
+    ).exists()
+    return Response({'has_permission': has_permission}, status=status.HTTP_200_OK)
+    
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def request_board_control(request):
+    board_id = request.data.get('board_id')
+    
+    if not board_id:
+        return Response({'error': 'Missing board_id'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        board = Board.objects.get(id=board_id)
+    except Board.DoesNotExist:
+        return Response({'error': 'Board not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    existing_request = BoardControlRequest.objects.filter(
+        board=board,
+        user=request.user,
+        is_active=True,
+        expires_at__gt=timezone.now()
+    ).first()
+
+    if existing_request:
+        return Response({'message': 'You already have an active control request'}, status=status.HTTP_400_BAD_REQUEST)
+
+    control_request = BoardControlRequest.objects.create(board=board, user=request.user)
+    return Response({
+        'message': 'Control request sent',
+        'expires_at': control_request.expires_at
+    }, status=status.HTTP_201_CREATED)
+
 
 
