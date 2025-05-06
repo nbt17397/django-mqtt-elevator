@@ -48,10 +48,14 @@ class BoardSerializer(serializers.ModelSerializer):
         fields = '__all__'    
 
 class BoardControlRequestSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
 
     class Meta:
         model = BoardControlRequest
         fields = '__all__'
+
+    def get_user_name(self, obj):
+        return obj.user.name
 
 class LocationSerializer(serializers.ModelSerializer):
 
