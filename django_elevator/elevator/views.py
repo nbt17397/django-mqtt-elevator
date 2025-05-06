@@ -186,7 +186,7 @@ class BoardViewSet(viewsets.ModelViewSet):
     def control_requests(self, request, pk=None): 
         board = self.get_object() 
         paginator = StandardResultsSetPagination()
-        control_requests = board.control_requests.all()
+        control_requests = board.control_requests.all().order_by('-created_at')
         result_page = paginator.paginate_queryset(control_requests, request)
         serializer = BoardControlRequestSerializer(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
