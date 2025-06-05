@@ -1,5 +1,5 @@
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
-from .models import  User, Location, Board, BoardType, BoardControlRequest, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag
+from .models import  User, Location, Board, BoardType, BoardControlRequest, Group, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
@@ -41,11 +41,19 @@ class BoardTypeSerializer(serializers.ModelSerializer):
         model = BoardType
         fields = '__all__'
 
+class GroupSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Group
+        fields = '__all__' 
+
 class BoardSerializer(serializers.ModelSerializer):
+    groups = GroupSerializer(many=True, read_only=True)
 
     class Meta:
         model = Board
-        fields = '__all__'    
+        fields = '__all__'
+   
 
 class BoardControlRequestSerializer(serializers.ModelSerializer):
     user_name = serializers.SerializerMethodField()
@@ -100,7 +108,7 @@ class RegisterReadSerializer(serializers.ModelSerializer):
 class RegisterWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Register
-        fields = ['name', 'description', 'board', 'value', 'type', 'status']
+        fields = ['name', 'description', 'board', 'value', 'type', 'status', 'topic']
 
 
 class NotificationReadSerializer(serializers.ModelSerializer):

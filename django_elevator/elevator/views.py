@@ -10,7 +10,7 @@ from knox.auth import AuthToken
 from datetime import datetime
 from django.utils import timezone
 from django.shortcuts import render
-from .models import Location, Board, BoardControlRequest, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag, BoardType
+from .models import Location, Board, Group, BoardControlRequest, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag, BoardType
 from .serializers import (
     LocationReadSerializer, LocationWriteSerializer,
     BoardReadSerializer, BoardWriteSerializer, 
@@ -20,7 +20,8 @@ from .serializers import (
     HistoricalControlReadSerializer, HistoricalControlWriteSerializer, 
     RegisterSettingReadSerializer, RegisterSettingWriteSerializer, 
     MaintenanceRecordReadSerializer, MaintenanceRecordWriteSerializer,
-    TagSerializer, BoardTypeSerializer, BoardControlRequestSerializer
+    TagSerializer, BoardTypeSerializer, BoardControlRequestSerializer,
+    GroupSerializer
 )
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -140,6 +141,20 @@ class BoardTypeViewSet(viewsets.ModelViewSet):
     queryset = BoardType.objects.all()
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = BoardTypeSerializer
+
+class GroupViewSet(viewsets.ModelViewSet):
+    queryset = Group.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = GroupSerializer
+
+    @action(detail=True, methods=['get']) 
+    def registers(self, request, pk=None): 
+        group = self.get_object() 
+        paginator = StandardResultsSetPagination()
+        registers = group.registers.all()
+        result_page = paginator.paginate_queryset(registers, request)
+        serializer = RegisterReadSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)    
 
 class BoardControlRequestViewSet(viewsets.ModelViewSet):
     queryset = BoardControlRequest.objects.all()

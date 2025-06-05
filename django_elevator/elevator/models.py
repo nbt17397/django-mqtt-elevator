@@ -49,6 +49,15 @@ class Board(ItemBase):
     authorized_users = models.ManyToManyField(User, related_name='accessible_boards')
     capacity = models.FloatField(null=True, blank=True)
 
+class Group(models.Model):
+    name = models.CharField(max_length=150, null=False)
+    description = models.TextField(null=True, blank=True)
+    
+    board = models.ForeignKey('Board', on_delete=models.SET_NULL, null=True, blank=True, related_name='groups')
+
+    def __str__(self):
+        return self.name
+
 
 class BoardControlRequest(models.Model):
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name='control_requests')
@@ -71,9 +80,12 @@ class Register(ItemBase):
         
     description = models.CharField(max_length=1000, null=True, blank=True)
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name='registers')
+    group = models.ForeignKey(Group, on_delete=models.SET_NULL, null=True, blank=True, related_name='registers')
     value = models.IntegerField() 
-    type = models.CharField(max_length=255) 
+    type = models.CharField(max_length=255)
+    topic = models.CharField(max_length=255, null=True, blank=True) 
     status = models.BooleanField(default=True)
+
 
 
 class Notification(models.Model): 
