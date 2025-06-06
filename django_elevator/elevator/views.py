@@ -26,7 +26,7 @@ from .serializers import (
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser
-from .paginator import StandardResultsSetPagination
+from .paginator import StandardResultsSetPagination, LargeResultsSetPagination
 
 @api_view(['POST'])
 def login_api(request):
@@ -150,7 +150,7 @@ class GroupViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get']) 
     def registers(self, request, pk=None): 
         group = self.get_object() 
-        paginator = StandardResultsSetPagination()
+        paginator = LargeResultsSetPagination()
         registers = group.registers.all()
         result_page = paginator.paginate_queryset(registers, request)
         serializer = RegisterReadSerializer(result_page, many=True)
