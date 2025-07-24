@@ -1,6 +1,3 @@
-# Ignore Django migration files
-**/migrations/*.py
-**/migrations/*.pyc
 
 # Ignore virtual environment
 .venv/
