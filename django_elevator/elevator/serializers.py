@@ -1,5 +1,7 @@
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
-from .models import  User, Location, Board, BoardType, BoardControlRequest, Group, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag
+from .models import  User, Location, System, Pond, AnimalType, Unit, FoodType, FeedingMenu, FeedingMenuItem, FarmingCycle, FarmingCyclePond, Task
+from .models import WaterQualityRecord, DensityRecord, HealthRecord, Product, Inventory, StockTransaction,StockTransactionDetail
+from .models import Alert, Device, DeviceGroup, DeviceFunctionGroup, DeviceSetting, DeviceDataLog
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
@@ -35,35 +37,6 @@ class UserReadSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'name']
 
-class BoardTypeSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = BoardType
-        fields = '__all__'
-
-class GroupSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Group
-        fields = '__all__' 
-
-class BoardSerializer(serializers.ModelSerializer):
-    groups = GroupSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Board
-        fields = '__all__'
-   
-
-class BoardControlRequestSerializer(serializers.ModelSerializer):
-    user_name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = BoardControlRequest
-        fields = '__all__'
-
-    def get_user_name(self, obj):
-        return obj.user.name
 
 class LocationSerializer(serializers.ModelSerializer):
 
@@ -71,119 +44,293 @@ class LocationSerializer(serializers.ModelSerializer):
         model = Location
         fields = '__all__'
 
-class LocationReadSerializer(serializers.ModelSerializer):
-    boards = BoardSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Location
-        fields = '__all__'
 
 class LocationWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
         fields = ['name', 'description', 'lat', 'lng', 'authorized_users']
 
-class BoardReadSerializer(serializers.ModelSerializer):
-    location = LocationSerializer(read_only=True)
-    board_type = BoardTypeSerializer(read_only=True)
-    authorized_users = UserReadSerializer(many=True, read_only=True)
+class SystemSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = Board
+        model = System
         fields = '__all__'
 
-class BoardWriteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Board
-        fields = ['name', 'description', 'location', 'board_type', 'status', 'device_id', 'authorized_users', 'capacity']
-
-
-class RegisterReadSerializer(serializers.ModelSerializer):
-    board = BoardReadSerializer(read_only=True)
+class PondSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = Register
+        model = Pond
         fields = '__all__'
 
-class RegisterWriteSerializer(serializers.ModelSerializer):
+class PondReadSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Register
-        fields = ['name', 'description', 'board', 'value', 'type', 'status', 'topic']
+        model = Pond
+        fields = ['id', 'name', 'volume', 'created_at']
 
-
-class NotificationReadSerializer(serializers.ModelSerializer):
-    board = BoardReadSerializer(read_only=True)
-    register = RegisterReadSerializer(read_only=True)
+class SystemReadSerializer(serializers.ModelSerializer):
+    ponds = PondReadSerializer(many=True, read_only=True)
 
     class Meta:
-        model = Notification
+        model = System
+        fields = ['id', 'location', 'name', 'description', 'created_at', 'ponds']
+
+class AnimalTypeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = AnimalType
         fields = '__all__'
 
-class NotificationWriteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Notification
-        fields = ['title', 'board', 'register', 'description']
-
-
-class HistoricalDataReadSerializer(serializers.ModelSerializer):
-    register = RegisterReadSerializer(read_only=True)
+class UnitSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = HistoricalData
+        model = Unit
         fields = '__all__'
 
-class HistoricalDataWriteSerializer(serializers.ModelSerializer):
+class FoodTypeSerializer(serializers.ModelSerializer):
+    """
+    Read/Write serializer cho FoodType.
+    """
     class Meta:
-        model = HistoricalData
-        fields = ['register', 'type', 'value', 'timestamp']
+        model = FoodType
+        fields = ['id', 'location', 'name', 'description', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+class FeedingMenuItemWriteSerializer(serializers.ModelSerializer):
+    """
+    Write-only: chỉ chấp nhận khóa ngoại là ID và tỷ lệ.
+    """
+    class Meta:
+        model = FeedingMenuItem
+        fields = ['id', 'feeding_menu', 'food_type', 'unit', 'ratio']
+        read_only_fields = ['id']
 
 
-class HistoricalControlReadSerializer(serializers.ModelSerializer):
-    register = RegisterReadSerializer(read_only=True)
+class FeedingMenuItemReadSerializer(serializers.ModelSerializer):
+    """
+    Read-only: hiển thị cả thông tin cơ bản của FoodType.
+    """
+    food_type = FoodTypeSerializer(read_only=True)
 
     class Meta:
-        model = HistoricalControl
+        model = FeedingMenuItem
+        fields = ['id', 'food_type', 'unit', 'ratio']
+
+class FeedingMenuWriteSerializer(serializers.ModelSerializer):
+    """
+    Write-only: nhận location (ID) và tên menu.
+    Items có thể gửi lên riêng qua endpoint items.
+    """
+    class Meta:
+        model = FeedingMenu
+        fields = ['id', 'location', 'name']
+        read_only_fields = ['id']
+
+
+class FeedingMenuReadSerializer(serializers.ModelSerializer):
+    """
+    Read-only: hiển thị chi tiết menu kèm danh sách items.
+    """
+    items = FeedingMenuItemReadSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = FeedingMenu
+        fields = ['id', 'location', 'name', 'created_at', 'items']
+        read_only_fields = ['id', 'created_at', 'items']
+
+# 1. FarmingCyclePond
+# ---------------------------
+
+class FarmingCyclePondWriteSerializer(serializers.ModelSerializer):
+    """
+    Write-only serializer: chỉ cần truyền IDs và số lượng.
+    """
+    class Meta:
+        model = FarmingCyclePond
+        fields = ['farming_cycle', 'pond', 'initial_quantity', 'remaining_quantity']
+
+
+class PondNestedSerializer(serializers.ModelSerializer):
+    """
+    Serializer read-only để hiển thị thông tin pond khi nested.
+    """
+    class Meta:
+        model = Pond
+        fields = ['id', 'name', 'volume', 'created_at']
+
+
+class FarmingCyclePondReadSerializer(serializers.ModelSerializer):
+    """
+    Read-only serializer: nested thông tin pond cùng với số lượng.
+    """
+    pond = PondNestedSerializer(read_only=True)
+
+    class Meta:
+        model = FarmingCyclePond
+        fields = ['pond', 'initial_quantity', 'remaining_quantity']
+
+# ---------------------------
+# 2. FarmingCycle
+# ---------------------------
+
+class FarmingCycleWriteSerializer(serializers.ModelSerializer):
+    """
+    Write-only serializer cho FarmingCycle.
+    Chỉ nhận các trường cơ bản (không include pond links).
+    """
+    class Meta:
+        model = FarmingCycle
+        fields = [
+            'id', 'location', 'animal_type', 'cycle_code',
+            'start_date', 'end_date', 'status',
+            'initial_quantity', 'remaining_quantity'
+        ]
+        read_only_fields = ['id']
+
+
+class FarmingCycleReadSerializer(serializers.ModelSerializer):
+    """
+    Read-only serializer cho FarmingCycle, nested danh sách ponds.
+    """
+    ponds = FarmingCyclePondReadSerializer(
+        source='cycle_pond_links', many=True, read_only=True
+    )
+    animal_type_name = serializers.CharField(
+        source='animal_type.name', read_only=True
+    )
+
+    class Meta:
+        model = FarmingCycle
+        fields = [
+            'id', 'location', 'animal_type', 'animal_type_name',
+            'cycle_code', 'start_date', 'end_date', 'status',
+            'initial_quantity', 'remaining_quantity',
+            'created_at', 'ponds'
+        ]
+        read_only_fields = ['id', 'created_at', 'animal_type_name', 'ponds']
+
+
+class FarmingCycleNestedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FarmingCycle
+        fields = ['id', 'cycle_code']
+
+# ---------------------------
+# 1. Task Write Serializer
+# ---------------------------
+class TaskWriteSerializer(serializers.ModelSerializer):
+    """
+    Dùng cho các thao tác tạo/sửa: nhận IDs của pond và (tuỳ chọn) farming_cycle.
+    """
+    class Meta:
+        model = Task
+        fields = [
+            'id', 'pond', 'farming_cycle',
+            'title', 'description', 'status',
+            'start_datetime', 'end_datetime',
+            'completed_at'
+        ]
+        read_only_fields = ['id']
+
+
+# ---------------------------
+# 2. Task Read Serializer
+# ---------------------------
+class TaskReadSerializer(serializers.ModelSerializer):
+    """
+    Dùng để đọc: nested thông tin pond và farming_cycle, hiển thị label của status.
+    """
+    pond = PondNestedSerializer(read_only=True)
+    farming_cycle = FarmingCycleNestedSerializer(read_only=True)
+    status_display = serializers.CharField(
+        source='get_status_display',
+        read_only=True
+    )
+
+    class Meta:
+        model = Task
+        fields = [
+            'id', 'pond', 'farming_cycle',
+            'title', 'description', 'status', 'status_display',
+            'start_datetime', 'end_datetime',
+            'completed_at', 'created_at'
+        ]
+        read_only_fields = [
+            'id', 'created_at', 'status_display'
+        ]
+
+class DensityRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DensityRecord
         fields = '__all__'
 
-class HistoricalControlWriteSerializer(serializers.ModelSerializer):
+class HealthRecordSerializer(serializers.ModelSerializer):
     class Meta:
-        model = HistoricalControl
-        fields = ['register', 'type', 'value', 'timestamp', 'description']
-
-
-class RegisterSettingReadSerializer(serializers.ModelSerializer):
-    register = RegisterReadSerializer(read_only=True)
+        model = HealthRecord
+        fields = '__all__'
+        
+class WaterQualityRecordSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
-        model = RegisterSetting
+        model = WaterQualityRecord
         fields = '__all__'
 
-class RegisterSettingWriteSerializer(serializers.ModelSerializer):
+    def get_image_url(self, obj):
+        request = self.context.get('request')
+        if obj.image_url and request:
+            return request.build_absolute_uri(obj.image_url.url)
+        return None
+    
+class ProductSerializer(serializers.ModelSerializer):
     class Meta:
-        model = RegisterSetting
-        fields = ['register', 'type', 'value', 'timestamp']
-
-
-class MaintenanceRecordReadSerializer(serializers.ModelSerializer):
-    register = RegisterReadSerializer(read_only=True)
-    board = BoardReadSerializer(read_only=True)
-
-    class Meta:
-        model = MaintenanceRecord
+        model = Product
         fields = '__all__'
 
-class MaintenanceRecordWriteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MaintenanceRecord
-        fields = ['name', 'description', 'register', 'board', 'timestamp']
+class InventorySerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
 
-class TagSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Tag
+        model = Inventory
         fields = '__all__'
 
+class StockTransactionDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StockTransactionDetail
+        fields = '__all__'
 
+class StockTransactionSerializer(serializers.ModelSerializer):
+    details = StockTransactionDetailSerializer(many=True, read_only=True)
 
+    class Meta:
+        model = StockTransaction
+        fields = '__all__'
 
+class AlertSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Alert
+        fields = '__all__'
 
+class DeviceGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceGroup
+        fields = '__all__'
 
+class DeviceFunctionGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceFunctionGroup
+        fields = '__all__'
+
+class DeviceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Device
+        fields = '__all__'
+
+class DeviceSettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceSetting
+        fields = '__all__'
+
+class DeviceDataLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceDataLog
+        fields = '__all__'

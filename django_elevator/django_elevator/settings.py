@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'oauth2_provider',
     'knox',
     "corsheaders",
+    'simple_history',
 ]
 
 
@@ -60,6 +61,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'requestlogs.middleware.RequestLogsMiddleware',
+    'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
 ROOT_URLCONF = 'django_elevator.urls'
@@ -101,7 +103,7 @@ WSGI_APPLICATION = 'django_elevator.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'elevator',
+        'NAME': 'amvi',
         'USER': 'root',
         'PASSWORD': '12345678',
         'HOST': ''
@@ -159,7 +161,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
-MEDIA_ROOT = '%s/elevator/static' % BASE_DIR
+# MEDIA_ROOT = '%s/amvi/static' % BASE_DIR
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field

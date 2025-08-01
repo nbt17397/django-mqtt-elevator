@@ -1,36 +1,50 @@
 from rest_framework import viewsets, permissions, status, generics
-from .serializers import (UserSerializer)
-from .models import ( User)
-from rest_framework.parsers import MultiPartParser
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.authtoken.serializers import AuthTokenSerializer
 from knox.auth import AuthToken
-from datetime import datetime
-from django.utils import timezone
 from django.shortcuts import render
-from .models import Location, Board, Group, BoardControlRequest, Register, Notification, HistoricalData, HistoricalControl, RegisterSetting, MaintenanceRecord, Tag, BoardType
-from .serializers import (
-    LocationReadSerializer, LocationWriteSerializer,
-    BoardReadSerializer, BoardWriteSerializer, 
-    RegisterReadSerializer, RegisterWriteSerializer, 
-    NotificationReadSerializer, NotificationWriteSerializer, 
-    HistoricalDataReadSerializer, HistoricalDataWriteSerializer, 
-    HistoricalControlReadSerializer, HistoricalControlWriteSerializer, 
-    RegisterSettingReadSerializer, RegisterSettingWriteSerializer, 
-    MaintenanceRecordReadSerializer, MaintenanceRecordWriteSerializer,
-    TagSerializer, BoardTypeSerializer, BoardControlRequestSerializer,
-    GroupSerializer
-)
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.parsers import JSONParser
+from django.utils import timezone
+
+from .models import (
+    User, Location, System, Pond, AnimalType, Unit,
+    FoodType, FeedingMenu, FeedingMenuItem,
+    FarmingCycle, FarmingCyclePond, Task,
+    WaterQualityRecord, DensityRecord, HealthRecord,
+    Product, Inventory, StockTransaction, StockTransactionDetail,
+    Alert, DeviceGroup, DeviceFunctionGroup, Device,
+    DeviceSetting, DeviceDataLog
+)
+from .serializers import (
+    UserSerializer, UserReadSerializer,
+    LocationSerializer, LocationWriteSerializer,
+    SystemSerializer, SystemReadSerializer,
+    PondSerializer, PondReadSerializer,
+    AnimalTypeSerializer, UnitSerializer,
+    FoodTypeSerializer,
+    FeedingMenuWriteSerializer, FeedingMenuReadSerializer,
+    FeedingMenuItemWriteSerializer, FeedingMenuItemReadSerializer,
+    FarmingCycleWriteSerializer, FarmingCycleReadSerializer,
+    FarmingCycleNestedSerializer,
+    FarmingCyclePondWriteSerializer, FarmingCyclePondReadSerializer,
+    TaskWriteSerializer, TaskReadSerializer,
+    DensityRecordSerializer, HealthRecordSerializer,
+    WaterQualityRecordSerializer,
+    ProductSerializer, InventorySerializer,
+    StockTransactionSerializer, StockTransactionDetailSerializer,
+    AlertSerializer,
+    DeviceGroupSerializer, DeviceFunctionGroupSerializer,
+    DeviceSerializer, DeviceSettingSerializer,
+    DeviceDataLogSerializer
+)
 from .paginator import StandardResultsSetPagination, LargeResultsSetPagination
 
+
 @api_view(['POST'])
+@permission_classes([permissions.AllowAny])
 def login_api(request):
-    permission_classes = [permissions.AllowAny]
     serializer = AuthTokenSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     user = serializer.validated_data['user']
@@ -49,8 +63,6 @@ def login_api(request):
             'username': user.username,
             'email': user.email,
             'device_token': user.device_token,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
             'name': user.name,
             'is_superuser': user.is_superuser,
         },
@@ -59,459 +71,207 @@ def login_api(request):
 
 
 @api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
 def get_user_data(request):
     user = request.user
-
-    if user is not None:
-        return Response(data={'user_info': {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email
-        }})
-    return Response(data={'error': 'not authenticated'}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({'user_info': {
+        'id': user.id,
+        'username': user.username,
+        'email': user.email
+    }})
 
 
-class UserViewSet(viewsets.ViewSet, generics.ListAPIView, generics.CreateAPIView, generics.UpdateAPIView, generics.RetrieveAPIView, generics.DestroyAPIView):
+class UserViewSet(viewsets.GenericViewSet,
+                  generics.ListAPIView,
+                  generics.CreateAPIView,
+                  generics.RetrieveAPIView,
+                  generics.UpdateAPIView,
+                  generics.DestroyAPIView):
     queryset = User.objects.filter(is_active=True)
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    @action(methods=['get'], detail=False, url_path='current-user')
-    def get_current_user(seft, request):
-        return Response(seft.serializer_class(request.user).data, status=status.HTTP_200_OK)
+    @action(detail=False, methods=['get'], url_path='current-user')
+    def current_user(self, request):
+        return Response(UserReadSerializer(request.user).data)
 
-    def list(self, request):
-        users = User.objects.filter(is_active=True)
-        building = request.query_params.get('building')
-        if building is not None:
-            users = users.filter(building=building)
-
-        serializer = UserSerializer(users, many=True)
-        return Response(data={"users": serializer.data}, status=status.HTTP_200_OK)
-    
-    @action(detail=True, methods=['get'])
-    def boards(self, request, pk=None):
+    def destroy(self, request, *args, **kwargs):
         user = self.get_object()
-        paginator = StandardResultsSetPagination()
-        if user.is_superuser:
-            boards = Board.objects.all()
-        else:
-            boards = user.accessible_boards.all()
-        result_page = paginator.paginate_queryset(boards, request)
-        serializer = BoardReadSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-    
-    @action(detail=True, methods=['get'])
-    def locations(self, request, pk=None):
-        user = self.get_object()
-        paginator = StandardResultsSetPagination()
-        if user.is_superuser:
-            locations = Location.objects.all()
-        else:
-            locations = user.accessible_locations.all()
-        result_page = paginator.paginate_queryset(locations, request)
-        serializer = LocationReadSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-
-    def destroy(self, request, pk, *args, **kwargs):
-        user = User.objects.get(pk=pk)
         user.is_active = False
         user.save()
-        return Response(status=204)
-    
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class LocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
         if self.action in ['list', 'retrieve']:
-            return LocationReadSerializer
+            return LocationSerializer
         return LocationWriteSerializer
-    
-    @action(detail=True, methods=['get']) 
-    def boards(self, request, pk=None): 
-        location = self.get_object() 
-        paginator = StandardResultsSetPagination()
-        boards = location.boards.all() 
-        result_page = paginator.paginate_queryset(boards, request)
-        serializer = BoardReadSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-    
-class BoardTypeViewSet(viewsets.ModelViewSet):
-    queryset = BoardType.objects.all()
+
+
+class SystemViewSet(viewsets.ModelViewSet):
+    queryset = System.objects.all()
+    serializer_class = SystemSerializer
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = BoardTypeSerializer
 
-class GroupViewSet(viewsets.ModelViewSet):
-    queryset = Group.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = GroupSerializer
 
-    @action(detail=True, methods=['get']) 
-    def registers(self, request, pk=None): 
-        group = self.get_object() 
-        paginator = LargeResultsSetPagination()
-        registers = group.registers.all()
-        result_page = paginator.paginate_queryset(registers, request)
-        serializer = RegisterReadSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)    
-
-class BoardControlRequestViewSet(viewsets.ModelViewSet):
-    queryset = BoardControlRequest.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = BoardControlRequestSerializer
-
-class BoardViewSet(viewsets.ModelViewSet):
-    queryset = Board.objects.all()
+class PondViewSet(viewsets.ModelViewSet):
+    queryset = Pond.objects.all()
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
         if self.action in ['list', 'retrieve']:
-            return BoardReadSerializer
-        return BoardWriteSerializer
-    
-    @action(detail=True, methods=['get']) 
-    def registers(self, request, pk=None): 
-        board = self.get_object() 
-        paginator = StandardResultsSetPagination()
-        registers = board.registers.all()
-        result_page = paginator.paginate_queryset(registers, request)
-        serializer = RegisterReadSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-    
-    @action(detail=True, methods=['get']) 
-    def notifications(self, request, pk=None): 
-        board = self.get_object() 
-        paginator = StandardResultsSetPagination()
-        notifications = board.notifications.all()
-        result_page = paginator.paginate_queryset(notifications, request)
-        serializer = NotificationReadSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-    
-    @action(detail=True, methods=['get']) 
-    def maintenance_records(self, request, pk=None): 
-        board = self.get_object() 
-        paginator = StandardResultsSetPagination()
-        maintenance_records = board.maintenance_records.all() 
-        result_page = paginator.paginate_queryset(maintenance_records, request)
-        serializer = MaintenanceRecordReadSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-    
-    @action(detail=True, methods=['get']) 
-    def control_requests(self, request, pk=None): 
-        board = self.get_object() 
-        paginator = StandardResultsSetPagination()
-        control_requests = board.control_requests.all().order_by('-created_at')
-        result_page = paginator.paginate_queryset(control_requests, request)
-        serializer = BoardControlRequestSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+            return PondReadSerializer
+        return PondSerializer
 
-class RegisterViewSet(viewsets.ModelViewSet):
-    queryset = Register.objects.all()
+
+class AnimalTypeViewSet(viewsets.ModelViewSet):
+    queryset = AnimalType.objects.all()
+    serializer_class = AnimalTypeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class UnitViewSet(viewsets.ModelViewSet):
+    queryset = Unit.objects.all()
+    serializer_class = UnitSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class FoodTypeViewSet(viewsets.ModelViewSet):
+    queryset = FoodType.objects.all()
+    serializer_class = FoodTypeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class FeedingMenuViewSet(viewsets.ModelViewSet):
+    queryset = FeedingMenu.objects.all()
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
         if self.action in ['list', 'retrieve']:
-            return RegisterReadSerializer
-        return RegisterWriteSerializer
-    
-    @action(detail=True, methods=['get']) 
-    def historical_data(self, request, pk=None): 
-        register = self.get_object() 
-        paginator = StandardResultsSetPagination()
-        historical_data = register.historical_data.all()
-        result_page = paginator.paginate_queryset(historical_data, request)
-        serializer = HistoricalDataWriteSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-    
-    @action(detail=True, methods=['get'], url_path='historical-data/all')
-    def historical_data_all(self, request, pk=None):
-        register = self.get_object()
-        historical_data = register.historical_data.all()
-        serializer = HistoricalDataWriteSerializer(historical_data, many=True)
-        return Response(serializer.data)
-    
-    @action(detail=True, methods=['get'], url_path='historical-data/range')
-    def historical_data_by_date(self, request, pk=None):
-        register = self.get_object()
-        date_start = request.query_params.get('date_start')
-        date_end = request.query_params.get('date_end')
+            return FeedingMenuReadSerializer
+        return FeedingMenuWriteSerializer
 
-        if not date_start or not date_end:
-            return Response({"error": "date_start và date_end là bắt buộc"}, status=400)
 
-        try:
-            date_start = datetime.strptime(date_start, "%Y-%m-%dT%H:%M:%S")
-            date_end = datetime.strptime(date_end, "%Y-%m-%dT%H:%M:%S")
-        except Exception:
-            return Response({"error": "Định dạng ngày không hợp lệ. Dùng ISO 8601."}, status=400)
-
-        historical_data = register.historical_data.filter(timestamp__range=(date_start, date_end))
-        serializer = HistoricalDataWriteSerializer(historical_data, many=True)
-        return Response(serializer.data)
-    
-    @action(detail=True, methods=['get']) 
-    def historical_controls(self, request, pk=None): 
-        register = self.get_object() 
-        paginator = StandardResultsSetPagination()
-        historical_controls = register.historical_controls.all()
-        result_page = paginator.paginate_queryset(historical_controls, request)
-        serializer = HistoricalControlReadSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-    
-    @action(detail=True, methods=['get']) 
-    def register_settings(self, request, pk=None): 
-        register = self.get_object() 
-        paginator = StandardResultsSetPagination()
-        settings = register.register_settings.all()
-        result_page = paginator.paginate_queryset(settings, request)
-        serializer = RegisterSettingReadSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-    
-    @action(detail=True, methods=['get']) 
-    def maintenance_records(self, request, pk=None): 
-        register = self.get_object() 
-        paginator = StandardResultsSetPagination()
-        maintenance_records = register.maintenance_records.all()
-        result_page = paginator.paginate_queryset(maintenance_records, request)
-        serializer = MaintenanceRecordReadSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-    
-    @action(detail=True, methods=['get']) 
-    def notifications(self, request, pk=None): 
-        register = self.get_object() 
-        paginator = StandardResultsSetPagination()
-        notifications = register.notifications.all()
-        result_page = paginator.paginate_queryset(notifications, request)
-        serializer = NotificationReadSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-
-class NotificationViewSet(viewsets.ModelViewSet):
-    queryset = Notification.objects.all()
+class FeedingMenuItemViewSet(viewsets.ModelViewSet):
+    queryset = FeedingMenuItem.objects.all()
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
         if self.action in ['list', 'retrieve']:
-            return NotificationReadSerializer
-        return NotificationWriteSerializer
+            return FeedingMenuItemReadSerializer
+        return FeedingMenuItemWriteSerializer
 
-class HistoricalDataViewSet(viewsets.ModelViewSet):
-    queryset = HistoricalData.objects.all()
+
+class FarmingCycleViewSet(viewsets.ModelViewSet):
+    queryset = FarmingCycle.objects.all()
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
         if self.action in ['list', 'retrieve']:
-            return HistoricalDataReadSerializer
-        return HistoricalDataWriteSerializer
+            return FarmingCycleReadSerializer
+        return FarmingCycleWriteSerializer
 
-class HistoricalControlViewSet(viewsets.ModelViewSet):
-    queryset = HistoricalControl.objects.all()
+
+class FarmingCyclePondViewSet(viewsets.ModelViewSet):
+    queryset = FarmingCyclePond.objects.all()
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
         if self.action in ['list', 'retrieve']:
-            return HistoricalControlReadSerializer
-        return HistoricalControlWriteSerializer
+            return FarmingCyclePondReadSerializer
+        return FarmingCyclePondWriteSerializer
 
-class RegisterSettingViewSet(viewsets.ModelViewSet):
-    queryset = RegisterSetting.objects.all()
+
+class TaskViewSet(viewsets.ModelViewSet):
+    queryset = Task.objects.all()
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
         if self.action in ['list', 'retrieve']:
-            return RegisterSettingReadSerializer
-        return RegisterSettingWriteSerializer
+            return TaskReadSerializer
+        return TaskWriteSerializer
 
-class MaintenanceRecordViewSet(viewsets.ModelViewSet):
-    queryset = MaintenanceRecord.objects.all()
+
+# Data Records
+class DensityRecordViewSet(viewsets.ModelViewSet):
+    queryset = DensityRecord.objects.all()
+    serializer_class = DensityRecordSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_serializer_class(self):
-        if self.action in ['list', 'retrieve']:
-            return MaintenanceRecordReadSerializer
-        return MaintenanceRecordWriteSerializer
 
-class TagViewSet(viewsets.ModelViewSet):
-    queryset = Tag.objects.all()
+class HealthRecordViewSet(viewsets.ModelViewSet):
+    queryset = HealthRecord.objects.all()
+    serializer_class = HealthRecordSerializer
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = TagSerializer
-
-    @action(detail=False, methods=['get'])
-    def search_by_code(self, request):
-        tag_code = request.query_params.get('tag_code', None)
-        if tag_code:
-            tags = Tag.objects.filter(tag_code=tag_code)
-            if tags.exists():
-                serializer = TagSerializer(tags, many=True)
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            else:
-                return Response({'detail': 'No tags found with this code.'}, status=status.HTTP_404_NOT_FOUND)
-        return Response({'detail': 'Tag code parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
-    
-
-@api_view(['POST'])
-def receive_data(request):
-    data = request.data
-    print('Received data:', data)
-    board_id = data.get('id')
-    print('Board ID:', board_id)
-    
-    try:
-        board = Board.objects.get(device_id=board_id)
-        print('Board found:', board)
-    except Board.DoesNotExist:
-        print('Board not found')
-        return Response({'status': 'fail', 'message': 'Board not found'}, status=404)
-    
-    data_list = data.get('data', [])
-    print('Data list:', data_list)
-    
-    for item in data_list:
-        print('Processing item:', item)
-        name = item.get('name')
-        
-        for key, value in item.items():
-            if key.startswith('value'):
-                obj, created = Register.objects.update_or_create(
-                    board=board,
-                    name=name,
-                    defaults={'value': value}
-                )
-
-                if not created:
-                    HistoricalData.objects.create(
-                        register=obj,
-                        type=obj.type,
-                        value=value
-                    )
-                print('Register object:', obj, 'Created:', created)
-    
-    return Response({'status': 'success'}, status=201)
 
 
-
-@api_view(['POST'])
-def notification_data(request):
-    data = request.data
-    print('Notification data:', data)
-    board_id = data.get('id')
-    print('Board ID:', board_id)
-    
-    try:
-        board = Board.objects.get(device_id=board_id)
-        print('Board found:', board)
-    except Board.DoesNotExist:
-        print('Board not found')
-        return Response({'status': 'fail', 'message': 'Board not found'}, status=404)
-    
-    data = data.get('data')
-    Notification.objects.create(
-        board=board,
-        # register=register,
-        title=data['title'],
-        description=data['description']
-    )
-     
-    return Response({'status': 'success'}, status=201)
+class WaterQualityRecordViewSet(viewsets.ModelViewSet):
+    queryset = WaterQualityRecord.objects.all()
+    serializer_class = WaterQualityRecordSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 
-@api_view(['POST'])
-def historical_data(request):
-    data = request.data
-    print('Setting data:', data)
-    board_id = data.get('id')
-    print('Board ID:', board_id)
-    
-    try:
-        board = Board.objects.get(device_id=board_id)
-        print('Board found:', board)
-    except Board.DoesNotExist:
-        print('Board not found')
-        return Response({'status': 'fail', 'message': 'Board not found'}, status=404)
-    
-    data_list = data.get('changed', [])
-    if not data_list:
-        return Response({'status': 'fail', 'message': 'Data not provided'}, status=400)
-
-    for item in data_list:
-        try:
-            register = Register.objects.get(name=item['name'], board=board)
-            print('Register found:', register)
-            HistoricalData.objects.create(
-                    register=register,
-                    type=register.type,
-                    value= item.get('value')
-                )
-
-        except Register.DoesNotExist:
-            print('Register not found')
-            obj, created = Register.objects.update_or_create(
-                    board=board,
-                    name= item.get('name'),
-                    defaults={'value': item.get('value')}
-                )
-
-            if created:
-                HistoricalData.objects.create(
-                    register=obj,
-                    type=obj.type,
-                    value= item.get('value')
-                )
-        
-    
-    return Response({'status': 'success'}, status=201)
-
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def check_board_control_permission(request):
-    board_id = request.data.get('board_id')
-    
-    if not board_id:
-        return Response({'error': 'Missing board_id'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    has_permission = BoardControlRequest.objects.filter(
-        board_id=board_id,
-        user=request.user,
-        is_active=True,
-        expires_at__gt=timezone.now()
-    ).exists()
-    return Response({'has_permission': has_permission}, status=status.HTTP_200_OK)
-    
-
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def request_board_control(request):
-    board_id = request.data.get('board_id')
-    
-    if not board_id:
-        return Response({'error': 'Missing board_id'}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        board = Board.objects.get(id=board_id)
-    except Board.DoesNotExist:
-        return Response({'error': 'Board not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    existing_request = BoardControlRequest.objects.filter(
-        board=board,
-        user=request.user,
-        is_active=True,
-        expires_at__gt=timezone.now()
-    ).first()
-
-    if existing_request:
-        return Response({
-            'message': 'You already have an active control request',
-            'expires_at': existing_request.expires_at,
-            'expires_at_ts': int(existing_request.expires_at.timestamp())
-        }, status=status.HTTP_200_OK)
+# Inventory & Stock
+class ProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 
-    control_request = BoardControlRequest.objects.create(board=board, user=request.user)
-    return Response({
-        'message': 'Control request sent',
-        'expires_at': control_request.expires_at,
-        'expires_at_ts': int(control_request.expires_at.timestamp())
-    }, status=status.HTTP_201_CREATED)
+class InventoryViewSet(viewsets.ModelViewSet):
+    queryset = Inventory.objects.all()
+    serializer_class = InventorySerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 
+class StockTransactionViewSet(viewsets.ModelViewSet):
+    queryset = StockTransaction.objects.all()
+    serializer_class = StockTransactionSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
+
+class StockTransactionDetailViewSet(viewsets.ModelViewSet):
+    queryset = StockTransactionDetail.objects.all()
+    serializer_class = StockTransactionDetailSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+# Alerts and Devices
+class AlertViewSet(viewsets.ModelViewSet):
+    queryset = Alert.objects.all()
+    serializer_class = AlertSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class DeviceGroupViewSet(viewsets.ModelViewSet):
+    queryset = DeviceGroup.objects.all()
+    serializer_class = DeviceGroupSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class DeviceFunctionGroupViewSet(viewsets.ModelViewSet):
+    queryset = DeviceFunctionGroup.objects.all()
+    serializer_class = DeviceFunctionGroupSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class DeviceViewSet(viewsets.ModelViewSet):
+    queryset = Device.objects.all()
+    serializer_class = DeviceSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class DeviceSettingViewSet(viewsets.ModelViewSet):
+    queryset = DeviceSetting.objects.all()
+    serializer_class = DeviceSettingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class DeviceDataLogViewSet(viewsets.ModelViewSet):
+    queryset = DeviceDataLog.objects.all()
+    serializer_class = DeviceDataLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
