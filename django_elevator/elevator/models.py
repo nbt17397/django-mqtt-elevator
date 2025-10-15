@@ -83,6 +83,7 @@ class Register(ItemBase):
     group = models.ForeignKey(Group, on_delete=models.SET_NULL, null=True, blank=True, related_name='registers')
     value = models.IntegerField() 
     type = models.CharField(max_length=255)
+    unit = models.CharField(max_length=255, null=True, blank=True)
     topic = models.CharField(max_length=255, null=True, blank=True) 
     status = models.BooleanField(default=True)
 

@@ -108,7 +108,7 @@ class RegisterReadSerializer(serializers.ModelSerializer):
 class RegisterWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Register
-        fields = ['name', 'description', 'board', 'value', 'type', 'status', 'topic']
+        fields = ['name', 'description', 'board', 'value', 'unit', 'type', 'status', 'topic']
 
 
 class NotificationReadSerializer(serializers.ModelSerializer):
