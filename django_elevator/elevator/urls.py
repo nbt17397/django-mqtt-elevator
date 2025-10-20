@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/receive-data/', views.receive_data),
     path('api/notification-data/',views.notification_data),
     path('api/historical-data/',views.historical_data),
+    path('api/historical-data-by-topic/',views.historical_data_by_topic),
     path('api/request-control/',views.request_board_control),
     path('api/check-board-control-permission/',views.check_board_control_permission),
 ]

@@ -81,7 +81,7 @@ class Register(ItemBase):
     description = models.CharField(max_length=1000, null=True, blank=True)
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name='registers')
     group = models.ForeignKey(Group, on_delete=models.SET_NULL, null=True, blank=True, related_name='registers')
-    value = models.IntegerField() 
+    value = models.FloatField()
     type = models.CharField(max_length=255)
     unit = models.CharField(max_length=255, null=True, blank=True)
     topic = models.CharField(max_length=255, null=True, blank=True) 

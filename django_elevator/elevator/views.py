@@ -416,6 +416,64 @@ def notification_data(request):
 
 
 @api_view(['POST'])
+def historical_data_by_topic(request):
+    # Dữ liệu POST gửi từ Node-RED: Cần có {"tagName": "...", "value": "..."}
+    data = request.data
+    
+    # 1. Lấy topic và value trực tiếp từ payload
+    register_topic = data.get('tagName')
+    value = data.get('value')  # Giả định giá trị được gửi trực tiếp
+    
+    print('Register Topic:', register_topic)
+    print('Value:', value)
+
+    # 2. Kiểm tra tính hợp lệ của dữ liệu
+    if not register_topic or value is None:
+        print('Topic or Value not provided')
+        return Response({'status': 'fail', 'message': 'TagName or Value not provided'}, status=400)
+    
+    # 3. Tìm kiếm Register dựa trên trường topic (Giả định mô hình Register có trường 'topic')
+    try:
+        register = Register.objects.get(topic=register_topic)
+        print('Register found:', register)
+        
+        # 4. Tạo HistoricalData
+        HistoricalData.objects.create(
+            register=register,
+            type=register.type,
+            value=value
+        )
+        
+    except Register.DoesNotExist:
+        # 5. Nếu Register không tìm thấy, tạo/cập nhật mới
+        print('Register not found. Creating/Updating...')
+        
+        # Tạo/Cập nhật Register (sử dụng topic làm name và tìm kiếm)
+        obj, created = Register.objects.update_or_create(
+            topic=register_topic, # Tiêu chí tìm kiếm/tạo
+            defaults={
+                'name': register_topic, # Đặt name mặc định là topic nếu tạo mới
+                'value': value, 
+                # Lưu ý: Cần thêm các trường bắt buộc khác (nếu có, ví dụ: board)
+            }
+        )
+
+        if created:
+            print(f'New Register created: {obj.name}')
+        else:
+            print(f'Existing Register updated: {obj.name}')
+            
+        # 6. Tạo HistoricalData cho Register mới/cập nhật
+        HistoricalData.objects.create(
+            register=obj,
+            type=obj.type,
+            value=value
+        )
+
+    # 7. Trả về thành công
+    return Response({'status': 'success'}, status=201)
+
+@api_view(['POST'])
 def historical_data(request):
     data = request.data
     print('Setting data:', data)
